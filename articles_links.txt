@@ -1,5 +1,0 @@
-https://cyberleninka.ru/article/n/arhitektura-detsentralizovannoy-rekomenduyuschey-sistemy-osnovannoy-na-primenenii-lokalno-chuvstvitelnogo-heshirovaniya
-https://cyberleninka.ru/article/n/ontologii-i-personifikatsiya-profilya-polzovatelya-v-rekomenduyuschih-sistemah-tretiego-pokoleniya
-https://cyberleninka.ru/article/n/metodologiya-postroeniya-proaktivnyh-rekomenduyuschih-sistem-dlya-infomobilnyh-prilozheniy
-https://cyberleninka.ru/article/n/rekomenduyuschie-sistemy-dlya-informatsionnoy-podderzhki-voditelya-analiz-sostoyaniya-issledovaniy
-https://cyberleninka.ru/article/n/intellektualnaya-sistema-pomoschi-turistu-servis-orientirovannaya-arhitektura-i-realizatsiya
