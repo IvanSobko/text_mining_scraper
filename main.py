@@ -6,16 +6,11 @@ import sys
 
 
 class Scrapper:
-    global_links = []
-    ip_addresses = []
-
-    text_num = 0
-
     def __init__(self):
         self.ip_addresses = self.get_proxies()
 
     def start_collecting(self, page_count, url):
-        page_num = 1
+        page_num = 81
         while True:
             if page_num > page_count:
                 break
@@ -50,6 +45,9 @@ class Scrapper:
             news_file.close()
             self.text_num = self.text_num + 1
             print(f"===== Collected by now: {self.text_num}... Time spent to collect: {(time.time() - start)}")
+
+    ip_addresses = []
+    text_num = 1600
 
 
     def get_proxies(self):
@@ -96,4 +94,4 @@ class Scrapper:
 
 if __name__ == '__main__':
     collector = Scrapper()
-    collector.start_collecting(80, "https://www.tourprom.ru/news/")
+    collector.start_collecting(85, "https://www.tourprom.ru/news/")
