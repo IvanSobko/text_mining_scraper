@@ -1,73 +1,99 @@
-import requests
 from bs4 import BeautifulSoup
+from lxml.html import fromstring
+import requests
+import time
+import sys
 
 
-class LinksCollector:
-    max_links_count = 0
-    links_list = []
+class Scrapper:
+    global_links = []
+    ip_addresses = []
 
-    def collect_links(self, url):
+    text_num = 0
+
+    def __init__(self):
+        self.ip_addresses = self.get_proxies()
+
+    def start_collecting(self, page_count, url):
+        page_num = 1
+        while True:
+            if page_num > page_count:
+                break
+            page = f"{url}?page={page_num}"
+            self.collect_texts(page)
+            page_num = page_num + 1
+
+    def collect_texts(self, url):
         response = requests.get(url)
         soup = BeautifulSoup(response.text, "html.parser")
-        # collect similar articles
-        similar_articles = soup.find_all("a", {"class": "similar"}, href=True)
 
-        for raw_link in similar_articles:
-            new_link = f"https://cyberleninka.ru{raw_link['href']}"
-            if new_link not in self.links_list:
-                if len(self.links_list) >= self.max_links_count:
-                    return
+        news_hrefs = soup.findAll("a", {"class": "news-block__text link-more"})
 
-                # filter old articles
-                if not self.check_publish_year(new_link):
-                    continue
+        if news_hrefs is None: # do i still need this?
+            input("\n------- Refresh page --------------\n")
+            self.collect_texts(url) # retry
 
-                self.links_list.append(new_link)
-                self.collect_links(new_link)
+        for a in news_hrefs:
+            start = time.time()
+            news_page = BeautifulSoup(requests.get('https://www.tourprom.ru/'+a['href']).text, "html.parser")
+            div = news_page.find('div', {'class' : 'block panel-body-wrap--padding news-detail'})
+            # remove ad
+            for item in div.findChildren(recursive=True):
+                if item.name == "em":
+                    item.extract()
 
-    def check_publish_year(self, url):
+            text = ""
+            for item in div.findChildren(recursive=True):
+                text = text + item.text
+            news_file = open(f"news/{self.text_num}", "w", encoding='utf-8')
+            news_file.write(text)
+            news_file.close()
+            self.text_num = self.text_num + 1
+            print(f"===== Collected by now: {self.text_num}... Time spent to collect: {(time.time() - start)}")
+
+
+    def get_proxies(self):
+        url = 'https://free-proxy-list.net/anonymous-proxy.html'
         response = requests.get(url)
-        soup = BeautifulSoup(response.text, "html.parser")
-        publish_year = soup.find("time").get_text()
+        parser = fromstring(response.text)
+        proxies = []
+        for i in parser.xpath('//tbody/tr')[:40]:
+            if i.xpath('.//td[7][contains(text(),"yes")]') and (i.xpath('.//td[5][contains(text(),"elite proxy")]')):
+                proxy = ":".join([i.xpath('.//td[1]/text()')[0], i.xpath('.//td[2]/text()')[0]])
+                proxies.append(proxy)
+        return proxies
 
-        if int(publish_year) < 2017:
-            return False
-        return True
+    def request_with_proxy(self, url):
+        attempt_num = 1
+        proxy_num = 0
+        while True:
+            if proxy_num >= len(self.ip_addresses):  # refresh proxies
+                print("Refreshing proxies")
+                self.ip_addresses = self.get_proxies()
+                proxy_num = 0
+            ip = self.ip_addresses[proxy_num]
+            proxy = {"http": ip, "https": ip}
+            print("Using proxy: ", ip)
+            session = requests.Session()
+            session.trust_env = False
+            try:
+                start = time.time()
+                response = session.get(url, proxies=proxy, timeout=6)
+                print(f"Got response, time: {(time.time() - start)}\n")
+                return response
+            except requests.exceptions.Timeout:
+                print('The request timed out')
+                proxy_num = proxy_num + 1
+                continue
+            except:
+                print("Skipping. Connection error. Retrying, attempt number:", attempt_num)
+                proxy_num = proxy_num + 1
+                attempt_num = attempt_num + 1
+                continue
 
     def print_links(self):
-        print(f"Collected {len(self.links_list)} links")
-        # for l in self.links_list:
-        #     print(l)
-
-
-def generate_text(url, num):
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    publish_year = soup.find("time").get_text()
-    # remove ads
-    ads = soup.find_all("div", {"class": "bibloid_serp bibloid_serp_ocr"})
-    for ad in ads:
-        ad.extract()
-    article_text = soup.find("div", {"class": "ocr"})
-    article_file = open(f"articles/{num}_{publish_year}.txt", "w", encoding='utf-8')
-    raw_text = article_text.get_text()
-    article_file.write(raw_text)
-    article_file.close()
-
+        print(f"Collected {len(self.global_links)} links")
 
 if __name__ == '__main__':
-    collector = LinksCollector()
-    collector.max_links_count = 5
-    collector.collect_links('https://cyberleninka.ru/article/n/algoritm-vzaimnogo-isklyucheniya-v-piringovyh-sistemah')
-    collector.print_links()
-
-    links_file = open(f"articles_links.txt", "w", encoding='utf-8')
-    for link in collector.links_list:
-        links_file.write(link + "\n")
-    links_file.close()
-
-    article_num = 0
-    for link in collector.links_list:
-        generate_text(link, article_num)
-        print(article_num)
-        article_num = article_num + 1
+    collector = Scrapper()
+    collector.start_collecting(80, "https://www.tourprom.ru/news/")
