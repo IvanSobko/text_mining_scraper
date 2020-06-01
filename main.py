@@ -2,7 +2,9 @@ from bs4 import BeautifulSoup
 from lxml.html import fromstring
 import requests
 import time
-import sys
+import re
+import os
+import glob
 
 
 class Scrapper:
@@ -10,7 +12,7 @@ class Scrapper:
         self.ip_addresses = self.get_proxies()
 
     def start_collecting(self, page_count, url):
-        page_num = 81
+        page_num = 1
         while True:
             if page_num > page_count:
                 break
@@ -23,12 +25,15 @@ class Scrapper:
         soup = BeautifulSoup(response.text, "html.parser")
 
         news_hrefs = soup.findAll("a", {"class": "news-block__text link-more"})
-
-        if news_hrefs is None: # do i still need this?
-            input("\n------- Refresh page --------------\n")
-            self.collect_texts(url) # retry
-
-        for a in news_hrefs:
+        news_date = soup.findAll("div", {"class": "date-circle"})
+        date_time = []
+        for div in news_date:
+            date_div = div.find("div", {"class": "date"})
+            time_div = div.find("div", {"class": "time"})
+            time_str = time_div.text.replace(':','.')
+            date_time.append(f"{date_div.text}_{time_str}")
+        print("Dates:", date_time)
+        for a, date in zip(news_hrefs, date_time):
             start = time.time()
             news_page = BeautifulSoup(requests.get('https://www.tourprom.ru/'+a['href']).text, "html.parser")
             div = news_page.find('div', {'class' : 'block panel-body-wrap--padding news-detail'})
@@ -40,14 +45,14 @@ class Scrapper:
             text = ""
             for item in div.findChildren(recursive=True):
                 text = text + item.text
-            news_file = open(f"news/{self.text_num}", "w", encoding='utf-8')
+            news_file = open(f"news/{date}.txt", "w", encoding='utf-8')
             news_file.write(text)
             news_file.close()
             self.text_num = self.text_num + 1
             print(f"===== Collected by now: {self.text_num}... Time spent to collect: {(time.time() - start)}")
 
     ip_addresses = []
-    text_num = 1600
+    text_num = 0
 
 
     def get_proxies(self):
@@ -89,9 +94,33 @@ class Scrapper:
                 attempt_num = attempt_num + 1
                 continue
 
-    def print_links(self):
-        print(f"Collected {len(self.global_links)} links")
+
+def formate_texts():
+    # data = "вки. Туристам , "
+    # formatted_data = re.sub(r'(\.)([^\s])', r'. \2', data)            # add space after dot
+    # formatted_data = re.sub(r'([^0-9])(\Z)', r'\1. ', formatted_data) # add dot after EOF
+    # formatted_data = re.sub(r'(\s)(\.)', r'\2', formatted_data)       # remove space before dot
+    # formatted_data = re.sub(r'(\s)(,)', r'\2', formatted_data)        # remove space before coma
+    # print(formatted_data)
+    # return
+    txtfiles = []
+    for file in glob.glob("news/*.txt"):
+        txtfiles.append(file)
+    for i in txtfiles:
+        with open(i, 'r+', encoding='utf-8') as text_file:
+            data = text_file.read()
+            formatted_data = re.sub(r'(\.)([^\s])', r'. \2', data) # add space after dot
+            formatted_data = re.sub(r'([^0-9])(\Z)', r'\1. ', formatted_data) # add dot after EOF
+            formatted_data = re.sub(r'(\s)(\.)', r'\2', formatted_data) # remove space before dot
+            formatted_data = re.sub(r'(\s)(,)', r'\2', formatted_data) # remove space before coma
+            text_file.seek(0)
+            text_file.write(formatted_data)
+            text_file.truncate()
+            text_file.close()
+        print(f"Proccessed {i} file")
+
 
 if __name__ == '__main__':
     collector = Scrapper()
-    collector.start_collecting(85, "https://www.tourprom.ru/news/")
+    collector.start_collecting(89, "https://www.tourprom.ru/news/")
+    formate_texts()
